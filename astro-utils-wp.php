@@ -3,7 +3,7 @@
  * Plugin Name: Astro-Utils-WP
  * Plugin URI: https://github.com/carlsoleopoldo/astro-utils-wp
  * Description: Utilidades para integrar WordPress con Astro, incluyendo exposición de meta fields de Elementor a través de la REST API
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Carlos Leopoldo Magaña Zavala
  * Author URI: https://carlsoleopoldo.com
  * License: GPL v2 or later
@@ -74,6 +74,7 @@ class IEEG_Astro_Utils {
      */
     private function init_hooks() {
         add_action('init', array($this, 'load_textdomain'));
+        add_action('init', array($this, 'expose_elementor_library_to_rest_api'));
         add_action('rest_api_init', array($this, 'register_rest_api_extensions'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         
@@ -94,11 +95,25 @@ class IEEG_Astro_Utils {
     }
     
     /**
+     * Exponer elementor_library a la REST API
+     */
+    public function expose_elementor_library_to_rest_api() {
+        // Registrar el post type elementor_library en la REST API
+        register_post_type('elementor_library', array(
+            'show_in_rest' => true,
+            'rest_base' => 'elementor-library',
+            'rest_controller_class' => 'WP_REST_Posts_Controller',
+        ));
+    }
+    
+    /**
      * Registrar extensiones de la REST API
      */
     public function register_rest_api_extensions() {
         $this->register_elementor_meta_fields();
+        $this->register_elementor_library_fields();
         $this->register_custom_meta_endpoint();
+        $this->register_elementor_templates_endpoint();
     }
     
     /**
@@ -134,6 +149,112 @@ class IEEG_Astro_Utils {
                 ),
             )
         );
+    }
+
+    /**
+     * Registrar campos específicos de elementor_library
+     */
+    public function register_elementor_library_fields() {
+        // Añadir el campo template_type a la respuesta
+        register_rest_field('elementor_library', 'template_type', array(
+            'get_callback' => array($this, 'get_elementor_template_type'),
+            'schema' => array(
+                'description' => __('Tipo de plantilla de Elementor', 'ieeg-astro-utils'),
+                'type' => 'string',
+                'context' => array('view', 'edit'),
+            ),
+        ));
+
+        // Añadir el contenido de Elementor
+        register_rest_field('elementor_library', 'elementor_data', array(
+            'get_callback' => array($this, 'get_elementor_data'),
+            'schema' => array(
+                'description' => __('Datos de Elementor en formato JSON', 'ieeg-astro-utils'),
+                'type' => 'string',
+                'context' => array('view', 'edit'),
+            ),
+        ));
+
+        // Añadir condiciones de display (si existen)
+        register_rest_field('elementor_library', 'display_conditions', array(
+            'get_callback' => array($this, 'get_elementor_display_conditions'),
+            'schema' => array(
+                'description' => __('Condiciones de visualización de Elementor', 'ieeg-astro-utils'),
+                'type' => 'array',
+                'context' => array('view', 'edit'),
+            ),
+        ));
+
+        // Añadir todos los meta fields de elementor_library
+        register_rest_field('elementor_library', 'meta', array(
+            'get_callback' => array($this, 'get_elementor_library_meta'),
+            'schema' => array(
+                'description' => __('Meta fields de la plantilla', 'ieeg-astro-utils'),
+                'type' => 'object',
+                'context' => array('view', 'edit'),
+            ),
+        ));
+    }
+
+    /**
+     * Obtener tipo de plantilla de Elementor
+     * 
+     * @param array $post Datos del post
+     * @return string Tipo de plantilla
+     */
+    public function get_elementor_template_type($post) {
+        return get_post_meta($post['id'], '_elementor_template_type', true);
+    }
+
+    /**
+     * Obtener datos de Elementor
+     * 
+     * @param array $post Datos del post
+     * @return string Datos de Elementor
+     */
+    public function get_elementor_data($post) {
+        return get_post_meta($post['id'], '_elementor_data', true);
+    }
+
+    /**
+     * Obtener condiciones de visualización de Elementor
+     * 
+     * @param array $post Datos del post
+     * @return array Condiciones de visualización
+     */
+    public function get_elementor_display_conditions($post) {
+        return get_post_meta($post['id'], '_elementor_conditions', true);
+    }
+
+    /**
+     * Obtener todos los meta fields de elementor_library
+     * 
+     * @param array $post Datos del post
+     * @return array Meta fields de la plantilla
+     */
+    public function get_elementor_library_meta($post) {
+        $all_meta = get_post_meta($post['id']);
+        $filtered_meta = array();
+        
+        // Meta fields específicos de Elementor Library
+        $elementor_library_keys = array(
+            '_elementor_template_type',
+            '_elementor_data',
+            '_elementor_conditions',
+            '_elementor_edit_mode',
+            '_elementor_page_settings',
+            '_elementor_css',
+            '_elementor_version',
+            '_wp_page_template'
+        );
+        
+        foreach ($elementor_library_keys as $key) {
+            if (isset($all_meta[$key])) {
+                $filtered_meta[$key] = is_array($all_meta[$key]) ? $all_meta[$key][0] : $all_meta[$key];
+            }
+        }
+        
+        return $filtered_meta;
     }
 
     /**
@@ -215,6 +336,111 @@ class IEEG_Astro_Utils {
             ),
             'permission_callback' => '__return_true', // Permitir acceso público
         ));
+    }
+
+    /**
+     * Registrar endpoint personalizado para plantillas de Elementor
+     */
+    public function register_elementor_templates_endpoint() {
+        // Endpoint para obtener plantillas por tipo
+        register_rest_route('elementor/v1', '/templates/(?P<type>[a-zA-Z0-9-]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_elementor_templates_by_type'),
+            'args' => array(
+                'type' => array(
+                    'validate_callback' => function($param) {
+                        return in_array($param, array('page', 'header', 'footer', 'single', 'archive', 'popup', 'section', 'widget'));
+                    }
+                ),
+            ),
+            'permission_callback' => '__return_true',
+        ));
+
+        // Endpoint para obtener todas las plantillas
+        register_rest_route('elementor/v1', '/templates', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_all_elementor_templates'),
+            'permission_callback' => '__return_true',
+        ));
+    }
+
+    /**
+     * Callback para obtener plantillas por tipo
+     * 
+     * @param WP_REST_Request $request Objeto de la petición
+     * @return WP_REST_Response Respuesta con las plantillas
+     */
+    public function get_elementor_templates_by_type($request) {
+        $template_type = $request['type'];
+        $templates = $this->get_elementor_templates($template_type);
+
+        $response_data = array();
+        foreach ($templates as $template) {
+            $response_data[] = array(
+                'id' => $template->ID,
+                'title' => $template->post_title,
+                'slug' => $template->post_name,
+                'template_type' => get_post_meta($template->ID, '_elementor_template_type', true),
+                'date_created' => $template->post_date,
+                'date_modified' => $template->post_modified,
+                'elementor_data' => get_post_meta($template->ID, '_elementor_data', true),
+                'conditions' => get_post_meta($template->ID, '_elementor_conditions', true),
+                'status' => $template->post_status,
+            );
+        }
+
+        return new WP_REST_Response($response_data, 200);
+    }
+
+    /**
+     * Callback para obtener todas las plantillas
+     * 
+     * @param WP_REST_Request $request Objeto de la petición
+     * @return WP_REST_Response Respuesta con todas las plantillas
+     */
+    public function get_all_elementor_templates($request) {
+        $templates = $this->get_elementor_templates();
+
+        $response_data = array();
+        foreach ($templates as $template) {
+            $response_data[] = array(
+                'id' => $template->ID,
+                'title' => $template->post_title,
+                'slug' => $template->post_name,
+                'template_type' => get_post_meta($template->ID, '_elementor_template_type', true),
+                'date_created' => $template->post_date,
+                'date_modified' => $template->post_modified,
+                'status' => $template->post_status,
+            );
+        }
+
+        return new WP_REST_Response($response_data, 200);
+    }
+
+    /**
+     * Función auxiliar para obtener plantillas de Elementor
+     * 
+     * @param string $template_type Tipo de plantilla opcional
+     * @return array Lista de plantillas
+     */
+    private function get_elementor_templates($template_type = '') {
+        $args = array(
+            'post_type' => 'elementor_library',
+            'posts_per_page' => -1,
+            'post_status' => array('publish', 'draft')
+        );
+
+        if (!empty($template_type)) {
+            $args['meta_query'] = array(
+                array(
+                    'key' => '_elementor_template_type',
+                    'value' => $template_type,
+                    'compare' => '='
+                )
+            );
+        }
+
+        return get_posts($args);
     }
 
     /**
