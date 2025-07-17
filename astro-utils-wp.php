@@ -533,7 +533,7 @@ class IEEG_Astro_Utils
         if (
             ! $post ||
             'elementor_library' !== $post->post_type ||
-            'landing-page' !== get_post_meta($id, '_elementor_template_type', true)
+            'e-landing-page' !== get_post_meta($id, '_elementor_template_type', true)
         ) {
             return new WP_Error(
                 'landing_not_found',
