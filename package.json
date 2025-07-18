@@ -1,0 +1,29 @@
+{
+  "name": "astro-utils-wp",
+  "version": "1.0.7",
+  "description": "Utilidades para integrar WordPress con Astro",
+  "main": "index.js",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/carlsoleopoldo/astro-utils-wp.git"
+  },
+  "keywords": [
+    "wordpress",
+    "astro",
+    "elementor"
+  ],
+  "author": "Carlos Leopoldo Magaña Zavala",
+  "license": "GPL-2.0-or-later",
+  "bugs": {
+    "url": "https://github.com/carlsoleopoldo/astro-utils-wp/issues"
+  },
+  "homepage": "https://github.com/carlsoleopoldo/astro-utils-wp#readme",
+  "devDependencies": {
+    "prettier": "^2.8.8",
+    "@prettier/plugin-php": "^0.19.4"
+  }
+}

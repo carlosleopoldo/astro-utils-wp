@@ -1,0 +1,15 @@
+parameters:
+  level: 5
+  paths:
+    - .
+  excludePaths:
+    - vendor
+    - node_modules
+  ignoreErrors:
+    # Ignorar funciones de WordPress
+    - '#Undefined (function|variable|class|type) [a-zA-Z0-9\_\-\(\)]+#'
+  scanDirectories:
+    - vendor
+  scanFiles: []
+  tmpDir: /tmp/phpstan
+  checkMissingIterableValueType: false

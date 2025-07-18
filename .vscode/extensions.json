@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "bmewburn.vscode-intelephense-client",
+    "ikappas.phpcs",
+    "neilbrayfield.php-docblocker",
+    "xdebug.php-debug"
+  ]
+}

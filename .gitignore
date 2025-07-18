@@ -1,0 +1,35 @@
+# Dependencias
+/node_modules
+/vendor
+
+# Archivos generados
+.DS_Store
+Thumbs.db
+
+# Archivos de entorno
+.env
+.env.*
+!.env.example
+
+# Archivos de caché
+.cache
+
+# Archivos de log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos de bloqueo de dependencias
+package-lock.json
+yarn.lock
+composer.lock
+
+# Archivos de IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace

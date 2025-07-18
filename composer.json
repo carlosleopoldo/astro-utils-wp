@@ -1,0 +1,32 @@
+{
+    "name": "carlsoleopoldo/astro-utils-wp",
+    "description": "Utilidades para integrar WordPress con Astro",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Carlos Leopoldo Magaña Zavala",
+            "email": "carlos@carlsoleopoldo.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.7",
+        "wp-coding-standards/wpcs": "^2.3",
+        "dealerdirect/phpcodesniffer-composer-installer": "^0.7",
+        "prettier/plugin-php": "^0.19"
+    },
+    "scripts": {
+        "format": "prettier --write .",
+        "lint": "phpcs --standard=WordPress .",
+        "lint:fix": "phpcbf --standard=WordPress ."
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

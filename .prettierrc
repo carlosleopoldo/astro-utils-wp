@@ -1,0 +1,14 @@
+{
+  "printWidth": 100,
+  "tabWidth": 4,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "bracketSpacing": true,
+  "arrowParens": "avoid",
+  "phpVersion": "7.4",
+  "braceStyle": "1tbs",
+  "requirePragma": false,
+  "insertPragma": false
+}

@@ -1,0 +1,15 @@
+# Directorios
+vendor/
+node_modules/
+.git/
+
+# Archivos generados
+*.min.js
+*.min.css
+*.map
+
+# Archivos de WordPress generados
+wp-config.php
+
+# Archivos de caché
+.cache/
