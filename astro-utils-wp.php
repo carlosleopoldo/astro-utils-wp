@@ -24,11 +24,21 @@ class IEEG_Astro_Utils {
     const VERSION = '1.0.7';
     private static $instance = null;
 
+    /**
+     * Constructor privado para implementar patrón Singleton
+     *
+     * @return void
+     */
     private function __construct() {
         $this->define_constants();
         $this->init_hooks();
     }
 
+    /**
+     * Obtiene la instancia única de la clase (patrón Singleton)
+     *
+     * @return IEEG_Astro_Utils Instancia única de la clase
+     */
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -36,6 +46,11 @@ class IEEG_Astro_Utils {
         return self::$instance;
     }
 
+    /**
+     * Define las constantes utilizadas por el plugin
+     *
+     * @return void
+     */
     private function define_constants() {
         define('IEEG_ASTRO_UTILS_VERSION', self::VERSION);
         define('IEEG_ASTRO_UTILS_PLUGIN_FILE', __FILE__);
@@ -44,6 +59,11 @@ class IEEG_Astro_Utils {
         define('IEEG_ASTRO_UTILS_PLUGIN_BASENAME', plugin_basename(__FILE__));
     }
 
+    /**
+     * Inicializa los hooks de WordPress
+     *
+     * @return void
+     */
     private function init_hooks() {
         add_action('init', [$this, 'load_textdomain']);
         add_action('init', [$this, 'expose_cpts_to_rest'], 5);
@@ -52,6 +72,11 @@ class IEEG_Astro_Utils {
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
     }
 
+    /**
+     * Carga el dominio de texto para internacionalización
+     *
+     * @return void
+     */
     public function load_textdomain() {
         load_plugin_textdomain(
             'astro-utils',
@@ -83,6 +108,13 @@ class IEEG_Astro_Utils {
         );
     }
 
+    /**
+     * Registra extensiones para la API REST de WordPress
+     * 
+     * Añade campos y endpoints personalizados para Elementor y landing pages
+     *
+     * @return void
+     */
     public function register_rest_api_extensions() {
         // Campos existentes...
         $this->register_elementor_meta_fields();
@@ -116,7 +148,11 @@ class IEEG_Astro_Utils {
         ]);
     }
 
-    /** Registrar meta fields genéricos */
+    /**
+     * Registra campos meta genéricos para Elementor en la API REST
+     *
+     * @return void
+     */
     public function register_elementor_meta_fields() {
         register_rest_field(['page', 'post'], 'elementor_meta', [
             'get_callback' => [$this, 'get_elementor_meta_fields'],
@@ -139,7 +175,9 @@ class IEEG_Astro_Utils {
     }
 
     /**
-     * Registrar campos específicos de elementor_library
+     * Registra campos específicos de elementor_library en la API REST
+     *
+     * @return void
      */
     public function register_elementor_library_fields() {
         // Añadir el campo template_type a la respuesta
@@ -480,7 +518,10 @@ class IEEG_Astro_Utils {
     }
 
     /**
-     * Listado de Landing Pages (templates type = 'landing-page')
+     * Obtiene un listado de Landing Pages (templates type = 'landing-page')
+     *
+     * @param WP_REST_Request $request Objeto de la petición REST
+     * @return WP_REST_Response Respuesta con el listado de landing pages
      */
     public function get_landing_pages($request) {
         $per_page = $request->get_param('per_page') ?: 10;
@@ -514,7 +555,10 @@ class IEEG_Astro_Utils {
     }
 
     /**
-     * Detalle de una Landing Page específica
+     * Obtiene el detalle de una Landing Page específica
+     *
+     * @param WP_REST_Request $request Objeto de la petición REST
+     * @return WP_REST_Response|WP_Error Respuesta con el detalle de la landing page o error
      */
     public function get_landing_page($request) {
         $id = (int) $request['id'];
@@ -541,18 +585,37 @@ class IEEG_Astro_Utils {
         return rest_ensure_response($response);
     }
 
+    /**
+     * Método ejecutado durante la activación del plugin
+     *
+     * Actualiza las reglas de reescritura y registra la versión del plugin
+     *
+     * @return void
+     */
     public function activate() {
         flush_rewrite_rules();
         add_option('ieeg_astro_utils_version', self::VERSION);
         error_log('IEEG-Astro-Utils plugin activado - Versión: ' . self::VERSION);
     }
 
+    /**
+     * Método ejecutado durante la desactivación del plugin
+     *
+     * Actualiza las reglas de reescritura
+     *
+     * @return void
+     */
     public function deactivate() {
         flush_rewrite_rules();
         error_log('IEEG-Astro-Utils plugin desactivado');
     }
 }
 
+/**
+ * Función de acceso global al plugin
+ *
+ * @return IEEG_Astro_Utils Instancia única del plugin
+ */
 function ieeg_astro_utils() {
     return IEEG_Astro_Utils::get_instance();
 }
