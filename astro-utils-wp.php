@@ -607,7 +607,7 @@ class IEEG_Astro_Utils {
                 $content = do_shortcode($content);
                 $content = wptexturize($content);
                 $content = convert_smilies($content);
-                $content = wpautop($content);
+                // $content = wpautop($content);
 
                 return $content;
             }
