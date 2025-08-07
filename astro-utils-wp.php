@@ -69,7 +69,6 @@ class IEEG_Astro_Utils {
         add_action('init', [$this, 'expose_cpts_to_rest'], 5);
         add_action('rest_api_init', [$this, 'register_elementor_landing_pages_endpoint']);
         add_action('rest_api_init', [$this, 'register_rest_api_extensions']);
-        add_action('rest_api_init', [$this, 'add_cors_support']);
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('wp_ajax_execute_webhook', [$this, 'handle_webhook_execution']);
@@ -1465,64 +1464,6 @@ class IEEG_Astro_Utils {
                     $response_body,
             ]);
         }
-    }
-
-    /**
-     * Agrega soporte CORS para la API REST de WordPress
-     *
-     * Permite peticiones desde cualquier dominio a la API REST
-     *
-     * @return void
-     */
-    public function add_cors_support() {
-        // Agregar headers CORS para todas las peticiones de la API REST
-        add_filter(
-            'rest_pre_serve_request',
-            function ($served, $result, $request, $server) {
-                // Permitir cualquier origen
-                header('Access-Control-Allow-Origin: *');
-                header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-                header(
-                    'Access-Control-Allow-Headers: Content-Type, Authorization, X-WP-Nonce, X-Requested-With',
-                );
-                header('Access-Control-Allow-Credentials: true');
-                header('Access-Control-Max-Age: 86400'); // 24 horas
-
-                // Manejar peticiones OPTIONS (preflight)
-                if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-                    status_header(200);
-                    exit();
-                }
-
-                return $served;
-            },
-            10,
-            4,
-        );
-
-        // Agregar headers CORS específicamente para todas las respuestas de la API REST
-        add_action('rest_api_init', function () {
-            add_filter(
-                'rest_post_dispatch',
-                function ($response, $server, $request) {
-                    // Permitir cualquier origen
-                    $response->header('Access-Control-Allow-Origin', '*');
-                    $response->header(
-                        'Access-Control-Allow-Methods',
-                        'GET, POST, PUT, DELETE, OPTIONS',
-                    );
-                    $response->header(
-                        'Access-Control-Allow-Headers',
-                        'Content-Type, Authorization, X-WP-Nonce, X-Requested-With',
-                    );
-                    $response->header('Access-Control-Allow-Credentials', 'true');
-
-                    return $response;
-                },
-                10,
-                3,
-            );
-        });
     }
 }
 
