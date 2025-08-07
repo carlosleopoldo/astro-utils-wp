@@ -7,6 +7,9 @@ Utilidades para integrar WordPress con Astro. Expone campos de Elementor, permit
 -   Expone campos de Elementor en la API REST de WordPress
 -   Permite filtrar páginas por tipo de plantilla de Elementor
 -   Añade el CPT elementor_library a la API REST
+-   **Nuevo:** Panel de administración para configurar y ejecutar webhooks
+-   **Nuevo:** Configuración de URL y secret para webhooks
+-   **Nuevo:** Interfaz para ejecutar webhooks manualmente desde el admin
 
 ## Instalación
 
@@ -77,6 +80,48 @@ Si tu IDE muestra errores de diagnóstico relacionados con funciones de WordPres
 4. El archivo `phpstan.neon` configura PHPStan para ignorar los errores relacionados con WordPress
 
 Estos archivos no afectan el funcionamiento del plugin, solo mejoran la experiencia de desarrollo.
+
+## Uso del Webhook
+
+El plugin incluye funcionalidad para configurar y ejecutar webhooks desde el panel de administración de WordPress.
+
+### Configuración
+
+1. Ve a **Astro Utils > Configuración** en el panel de administración
+2. Configura los siguientes campos:
+   - **URL del Webhook**: La URL completa donde se enviará el webhook
+   - **Secret Webhook**: El secret utilizado para autenticar el webhook
+3. Guarda la configuración
+
+### Ejecución del Webhook
+
+1. Ve a **Astro Utils > Ejecutar Webhook** en el panel de administración
+2. Haz clic en el botón "Ejecutar Webhook"
+3. El sistema enviará una petición POST con los siguientes datos:
+
+```json
+{
+    "event": "publish",
+    "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Headers de la petición
+
+- `X-Webhook-Secret`: El secret configurado
+- `Content-Type`: application/json
+
+### Ejemplo de petición cURL equivalente
+
+```bash
+curl --location 'https://tu-url-configurada.com/webhook' \
+--header 'X-Webhook-Secret: tu-secret-configurado' \
+--header 'Content-Type: application/json' \
+--data '{
+    "event": "publish",
+    "timestamp": "2024-01-15T10:30:00Z"
+}'
+```
 
 ## Documentación
 

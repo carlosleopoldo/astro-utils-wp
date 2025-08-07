@@ -4,7 +4,7 @@
  * Plugin Name: Astro-Utils-WP
  * Plugin URI: https://github.com/carlsoleopoldo/astro-utils-wp
  * Description: Utilidades para integrar WordPress con Astro. Expone campos de Elementor, permite filtrar páginas por template y añade CPT elementor_library a REST API.
- * Version: 1.0.7
+ * Version: 1.1.0
  * Author: Carlos Leopoldo Magaña Zavala
  * Author URI: https://carlsoleopoldo.com
  * License: GPL v2 or later
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
 }
 
 class IEEG_Astro_Utils {
-    const VERSION = '1.0.7';
+    const VERSION = '1.1.0';
     private static $instance = null;
 
     /**
@@ -69,6 +69,9 @@ class IEEG_Astro_Utils {
         add_action('init', [$this, 'expose_cpts_to_rest'], 5);
         add_action('rest_api_init', [$this, 'register_elementor_landing_pages_endpoint']);
         add_action('rest_api_init', [$this, 'register_rest_api_extensions']);
+        add_action('admin_menu', [$this, 'add_admin_menu']);
+        add_action('admin_init', [$this, 'register_settings']);
+        add_action('wp_ajax_execute_webhook', [$this, 'handle_webhook_execution']);
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
     }
@@ -1149,6 +1152,302 @@ class IEEG_Astro_Utils {
     public function deactivate() {
         flush_rewrite_rules();
         error_log('IEEG-Astro-Utils plugin desactivado');
+    }
+
+    /**
+     * Agrega las páginas de administración al menú de WordPress
+     *
+     * @return void
+     */
+    public function add_admin_menu() {
+        add_menu_page(
+            __('Sitio Estático', 'astro-utils'),
+            __('Sitio Estático', 'astro-utils'),
+            'publish_posts',
+            'astro-utils',
+            [$this, 'admin_page_webhook'],
+            'dashicons-rest-api',
+            30,
+        );
+
+        add_submenu_page(
+            'astro-utils',
+            __('Generar Sitio Estático', 'astro-utils'),
+            __('Generar Sitio Estático', 'astro-utils'),
+            'publish_posts',
+            'astro-utils',
+            [$this, 'admin_page_webhook'],
+        );
+
+        add_submenu_page(
+            'astro-utils',
+            __('Configuración', 'astro-utils'),
+            __('Configuración', 'astro-utils'),
+            'manage_options',
+            'astro-utils-settings',
+            [$this, 'admin_page_settings'],
+        );
+    }
+
+    /**
+     * Registra las configuraciones del plugin
+     *
+     * @return void
+     */
+    public function register_settings() {
+        register_setting('astro_utils_settings', 'astro_utils_webhook_url');
+        register_setting('astro_utils_settings', 'astro_utils_secret_webhook');
+
+        add_settings_section(
+            'astro_utils_webhook_section',
+            __('Configuración del Generador de Sitio Estático', 'astro-utils'),
+            [$this, 'webhook_section_callback'],
+            'astro_utils_settings',
+        );
+
+        add_settings_field(
+            'webhook_url',
+            __('URL del Webhook', 'astro-utils'),
+            [$this, 'webhook_url_callback'],
+            'astro_utils_settings',
+            'astro_utils_webhook_section',
+        );
+
+        add_settings_field(
+            'secret_webhook',
+            __('Secret Webhook', 'astro-utils'),
+            [$this, 'secret_webhook_callback'],
+            'astro_utils_settings',
+            'astro_utils_webhook_section',
+        );
+    }
+
+    /**
+     * Callback para la sección de webhook
+     *
+     * @return void
+     */
+    public function webhook_section_callback() {
+        echo '<p>' . __('Configura la URL y el secret para el webhook.', 'astro-utils') . '</p>';
+    }
+
+    /**
+     * Callback para el campo URL del webhook
+     *
+     * @return void
+     */
+    public function webhook_url_callback() {
+        $value = get_option('astro_utils_webhook_url', '');
+        echo '<input type="url" name="astro_utils_webhook_url" value="' .
+            esc_attr($value) .
+            '" class="regular-text" placeholder="https://ejemplo.com/webhook" />';
+        echo '<p class="description">' .
+            __('URL completa donde se enviará el webhook.', 'astro-utils') .
+            '</p>';
+    }
+
+    /**
+     * Callback para el campo secret del webhook
+     *
+     * @return void
+     */
+    public function secret_webhook_callback() {
+        $value = get_option('astro_utils_secret_webhook', '');
+        echo '<input type="text" name="astro_utils_secret_webhook" value="' .
+            esc_attr($value) .
+            '" class="regular-text" placeholder="' .
+            __('Ingresa el secret', 'astro-utils') .
+            '" />';
+        echo '<p class="description">' .
+            __('Secret utilizado para autenticar el webhook.', 'astro-utils') .
+            '</p>';
+    }
+
+    /**
+     * Página de configuración del plugin
+     *
+     * @return void
+     */
+    public function admin_page_settings() {
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            <form method="post" action="options.php">
+                <?php
+                settings_fields('astro_utils_settings');
+                do_settings_sections('astro_utils_settings');
+                submit_button(__('Guardar Configuración', 'astro-utils'));?>
+            </form>
+        </div>
+        <?php
+    }
+
+    /**
+     * Página para generar el sitio estático
+     *
+     * @return void
+     */
+    public function admin_page_webhook() {
+        $webhook_url = get_option('astro_utils_webhook_url', '');
+        $secret_webhook = get_option('astro_utils_secret_webhook', '');
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+            <?php if (empty($webhook_url) || empty($secret_webhook)): ?>
+                <div class="notice notice-warning">
+                    <p><?php _e(
+                        'Debes configurar la URL del webhook y el secret antes de poder ejecutarlo.',
+                        'astro-utils',
+                    ); ?>
+                    <a href="<?php echo admin_url(
+                        'admin.php?page=astro-utils-settings',
+                    ); ?>"><?php _e('Ir a Configuración', 'astro-utils'); ?></a></p>
+                </div>
+            <?php else: ?>
+                <div class="webhook-container" style="text-align: center; margin-top: 50px;">
+                    <h2><?php _e('Generar Sitio Estático', 'astro-utils'); ?></h2>
+                    <p><?php _e(
+                        'Haz clic en el bot{on para generar sitio estático, este proceso puede tardar 5 minutos en completarse.',
+                        'astro-utils',
+                    ); ?></p>
+
+                    <button id="execute-webhook" class="button button-primary button-hero" style="margin: 20px;">
+                        <?php _e('Generar Sitio Estático', 'astro-utils'); ?>
+                    </button>
+
+                    <div id="webhook-result" style="margin-top: 20px;"></div>
+                </div>
+
+                <script type="text/javascript">
+                jQuery(document).ready(function($) {
+                    $('#execute-webhook').on('click', function() {
+                        var button = $(this);
+                        var resultDiv = $('#webhook-result');
+                        var ajaxCompleted = false;
+                        var ajaxResult = '';
+
+                        // Cambiar estado del botón y limpiar resultados
+                        button.prop('disabled', true).text('<?php echo esc_js(__('Ejecutando...', 'astro-utils')); ?>');
+                        resultDiv.html('');
+
+                        // Ejecutar AJAX
+                        $.ajax({
+                            url: ajaxurl,
+                            type: 'POST',
+                            data: {
+                                action: 'execute_webhook',
+                                nonce: '<?php echo wp_create_nonce('execute_webhook_nonce'); ?>'
+                            },
+                            success: function(response) {
+                                ajaxCompleted = true;
+                                if (response.success) {
+                                    ajaxResult = '<div class="notice notice-success"><p>' + response.data.message + '</p></div>';
+                                } else {
+                                    ajaxResult = '<div class="notice notice-error"><p>' + response.data.message + '</p></div>';
+                                }
+                            },
+                            error: function() {
+                                ajaxCompleted = true;
+                                ajaxResult = '<div class="notice notice-error"><p><?php echo esc_js(__('Error al generar el sitio estático.', 'astro-utils')); ?></p></div>';
+                            }
+                        });
+
+                        // Mostrar mensaje de espera inmediatamente después de ejecutar AJAX
+                        resultDiv.html('<div class="notice notice-info"><p><?php echo esc_js(__('Este proceso puede tardar unos minutos, por favor espere', 'astro-utils')); ?></p></div>');
+
+                        // Timer de 8 minutos (480000 ms) para restaurar el botón
+                        setTimeout(function() {
+                            button.prop('disabled', false).text('<?php echo esc_js(__('Generar Sitio Estático Ahora', 'astro-utils')); ?>');
+                            
+                            // Mostrar el resultado del AJAX si ya se completó
+                            if (ajaxCompleted && ajaxResult) {
+                                resultDiv.html(ajaxResult);
+                            } else if (!ajaxCompleted) {
+                                // Si el AJAX aún no se completó después de 8 minutos, mostrar mensaje de timeout
+                                resultDiv.html('<div class="notice notice-warning"><p><?php echo esc_js(__('El proceso ha tomado más tiempo del esperado. Por favor, verifique el estado manualmente.', 'astro-utils')); ?></p></div>');
+                            }
+                        }, 480000); // 8 minutos
+                    });
+                });
+                </script>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Maneja la ejecución del webhook vía AJAX
+     *
+     * @return void
+     */
+    public function handle_webhook_execution() {
+        // Verificar nonce de seguridad
+        if (!wp_verify_nonce($_POST['nonce'], 'execute_webhook_nonce')) {
+            wp_die(__('Error de seguridad.', 'astro-utils'));
+        }
+
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permisos para realizar esta acción.', 'astro-utils'));
+        }
+
+        $webhook_url = get_option('astro_utils_webhook_url', '');
+        $secret_webhook = get_option('astro_utils_secret_webhook', '');
+
+        if (empty($webhook_url) || empty($secret_webhook)) {
+            wp_send_json_error([
+                'message' => __('URL del webhook o secret no configurados.', 'astro-utils'),
+            ]);
+        }
+
+        // Preparar los datos del webhook
+        $webhook_data = [
+            'event' => 'publish',
+            'timestamp' => current_time('c'), // Formato ISO 8601
+        ];
+
+        // Preparar headers
+        $headers = [
+            'X-Webhook-Secret' => $secret_webhook,
+            'Content-Type' => 'application/json',
+        ];
+
+        // Ejecutar la petición
+        $response = wp_remote_post($webhook_url, [
+            'headers' => $headers,
+            'body' => json_encode($webhook_data),
+            'timeout' => 30,
+        ]);
+
+        if (is_wp_error($response)) {
+            wp_send_json_error([
+                'message' =>
+                    __('Error al generar sitio estático: ', 'astro-utils') .
+                    $response->get_error_message(),
+            ]);
+        }
+
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+
+        if ($response_code >= 200 && $response_code < 300) {
+            wp_send_json_success([
+                'message' =>
+                    __(
+                        'Solicitud de generación de sitio estático generada exitosamente. Código de respuesta: ',
+                        'astro-utils',
+                    ) . $response_code,
+            ]);
+        } else {
+            wp_send_json_error([
+                'message' =>
+                    __('Error en al generar sitio estático. Código de respuesta: ', 'astro-utils') .
+                    $response_code .
+                    '. Respuesta: ' .
+                    $response_body,
+            ]);
+        }
     }
 }
 
